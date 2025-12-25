@@ -1,0 +1,8 @@
+{
+  "name": "Sri Sujana Embroidery",
+  "description": "Premium Handcrafted Embroidery Business Management System",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
