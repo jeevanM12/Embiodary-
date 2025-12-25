@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, UserRole, Design, Order, OrderCategory, OrderStatus, Notification, PaymentStatus, ChatMessage, Offer } from './types';
+import { User, UserRole, Design, Order, OrderCategory, OrderStatus, Notification, PaymentStatus, ChatMessage, Offer, ActionLog } from './types';
 
 interface StoreState {
   user: User | null;
@@ -9,6 +9,7 @@ interface StoreState {
   orders: Order[];
   offers: Offer[];
   notifications: Notification[];
+  actionLogs: ActionLog[];
   login: (role: UserRole, employeeIdInput?: string) => boolean;
   logout: () => void;
   addNotification: (msg: string, type?: Notification['type']) => void;
@@ -108,6 +109,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [employees, setEmployees] = useState<User[]>(MOCK_EMPLOYEES);
   const [offers, setOffers] = useState<Offer[]>(MOCK_OFFERS);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [actionLogs, setActionLogs] = useState<ActionLog[]>([]);
 
   // Notification System
   const addNotification = (message: string, type: Notification['type'] = 'success') => {
@@ -116,6 +118,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 3000); 
+  };
+
+  const addActionLog = (log: Omit<ActionLog, 'id'>) => {
+      setActionLogs(prev => [{ ...log, id: Date.now().toString() }, ...prev]);
   };
 
   const login = (role: UserRole, employeeIdInput?: string) => {
@@ -185,6 +191,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
     addNotification(`Order #${orderId.slice(-4)} status updated to ${status}`);
+    
+    if (user?.role === UserRole.EMPLOYEE) {
+        addActionLog({
+            employeeId: user.id,
+            employeeName: user.name,
+            action: 'Status Update',
+            details: `Updated Order #${orderId.slice(-4)} to ${status}`,
+            timestamp: Date.now(),
+            orderId
+        });
+    }
   };
 
   const verifyPayment = (orderId: string, status: PaymentStatus) => {
@@ -215,6 +232,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return o;
     }));
+    
+    if (user.role === UserRole.EMPLOYEE) {
+        addActionLog({
+            employeeId: user.id,
+            employeeName: user.name,
+            action: 'Message Sent',
+            details: `Sent message in Order #${orderId.slice(-4)}`,
+            timestamp: Date.now(),
+            orderId
+        });
+    }
     addNotification('Message sent');
   };
 
@@ -259,7 +287,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <StoreContext.Provider value={{ 
-      user, designs, orders, employees, offers, notifications, 
+      user, designs, orders, employees, offers, notifications, actionLogs,
       login, logout, addNotification, placeOrder, 
       updateOrderStatus, addDesign, deleteDesign, sendMessage, verifyPayment, assignEmployee,
       uploadQR, uploadPaymentProof, addEmployee, removeEmployee, addOffer, removeOffer

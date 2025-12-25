@@ -56,8 +56,8 @@ export const Input: React.FC<InputProps> = ({ label, className = '', ...props })
 );
 
 // --- Badge ---
-export const Badge: React.FC<{ children: React.ReactNode; color?: string }> = ({ children, color = 'bg-luxe-100 text-luxe-800' }) => (
-  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${color}`}>
+export const Badge: React.FC<{ children: React.ReactNode; color?: string; className?: string }> = ({ children, color = 'bg-luxe-100 text-luxe-800', className = '' }) => (
+  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${color} ${className}`}>
     {children}
   </span>
 );

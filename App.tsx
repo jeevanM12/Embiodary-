@@ -8,7 +8,7 @@ import { generateEmbroideryDesign, askBusinessAdvisor } from './services/geminiS
 import { 
   Menu, User as UserIcon, ShoppingBag, MessageCircle, LogOut, Plus, 
   Upload, QrCode, CheckCircle, Truck, DollarSign, Image as ImageIcon,
-  Sparkles, Download, BarChart2, Briefcase, Camera, Mic, Search, Send, MapPin, Calendar, ArrowRight, Trash2, Edit, FileText, Users, Printer, Settings, Copy, Grid, History, CheckSquare, Banknote, Megaphone
+  Sparkles, Download, BarChart2, Briefcase, Camera, Mic, Search, Send, MapPin, Calendar, ArrowRight, Trash2, Edit, FileText, Users, Printer, Settings, Copy, Grid, History, CheckSquare, Banknote, Megaphone, Clock
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -574,10 +574,19 @@ const OrderDetailsPage = () => {
                                 )}
                             </div>
                         </div>
+
+                        {/* Highlighted Due Date */}
+                        <div className="bg-red-50 border border-red-100 p-4 rounded-lg flex items-center gap-3 mb-6">
+                            <div className="bg-red-100 p-2 rounded-full"><Calendar className="w-6 h-6 text-red-600" /></div>
+                            <div>
+                                <p className="text-xs uppercase font-bold text-red-600 tracking-wider">Required By Date</p>
+                                <p className="text-xl font-serif font-bold text-red-900">{order.dueDate ? new Date(order.dueDate).toDateString() : "No Date Set"}</p>
+                            </div>
+                        </div>
+
                         <div className="grid md:grid-cols-2 gap-6 text-sm">
                              <div><span className="block font-bold text-luxe-900">Customer</span> {order.customerName}</div>
                              <div><span className="block font-bold text-luxe-900">Phone</span> {order.customerPhone}</div>
-                             <div><span className="block font-bold text-luxe-900">Due Date</span> {order.dueDate}</div>
                              <div><span className="block font-bold text-luxe-900">Address</span> {order.address.line1}, {order.address.city}</div>
                              <div className="col-span-2 bg-luxe-50 p-4 rounded-lg border border-luxe-100">
                                 <span className="block font-bold text-luxe-900 mb-1">Requirements</span> 
@@ -1003,8 +1012,151 @@ const AdminDashboard = () => {
     );
 };
 
-// --- Other Components remain largely similar but assume style updates flow through UI.tsx ---
-// (CustomerDashboard, EmployeeDashboard, LoginPage, etc. utilize the improved Card/Button components automatically)
+// --- Employee Dashboard ---
+
+const EmployeeDashboard = () => {
+     const { orders, user, updateOrderStatus, designs, actionLogs } = useStore();
+     const navigate = useNavigate();
+     const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'history'>('active');
+
+     if (user?.role !== UserRole.EMPLOYEE) return <Navigate to="/login" />;
+     
+     const myOrders = orders.filter(o => o.assignedEmployeeId === user.id);
+     
+     // Filter tasks based on status
+     const activeTasks = myOrders.filter(o => o.status !== OrderStatus.COMPLETED && o.status !== OrderStatus.DELIVERED);
+     const completedTasks = myOrders.filter(o => o.status === OrderStatus.COMPLETED || o.status === OrderStatus.DELIVERED);
+     
+     const myLogs = actionLogs.filter(l => l.employeeId === user.id);
+
+     return (
+        <div className="container mx-auto px-4 py-8 min-h-screen bg-luxe-50">
+             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                 <div>
+                    <h1 className="text-3xl font-serif font-bold text-luxe-900">Atelier Portal</h1>
+                    <p className="text-luxe-500">Welcome back, {user.name}</p>
+                 </div>
+                 <div className="flex bg-white rounded-lg p-1 shadow-sm border border-luxe-200">
+                     <button 
+                        onClick={() => setActiveTab('active')}
+                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'active' ? 'bg-brand-burgundy text-white shadow' : 'text-luxe-500 hover:bg-luxe-50'}`}
+                     >
+                        <CheckSquare className="w-4 h-4 inline mr-2"/>Active
+                     </button>
+                     <button 
+                        onClick={() => setActiveTab('completed')}
+                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'completed' ? 'bg-brand-burgundy text-white shadow' : 'text-luxe-500 hover:bg-luxe-50'}`}
+                     >
+                        <CheckCircle className="w-4 h-4 inline mr-2"/>Completed
+                     </button>
+                     <button 
+                        onClick={() => setActiveTab('history')}
+                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-brand-burgundy text-white shadow' : 'text-luxe-500 hover:bg-luxe-50'}`}
+                     >
+                        <History className="w-4 h-4 inline mr-2"/>Activity Log
+                     </button>
+                 </div>
+             </div>
+             
+             {activeTab === 'active' && (
+                activeTasks.length === 0 ? (
+                    <div className="text-center py-20 bg-white rounded-xl border border-dashed border-luxe-200">
+                        <p className="text-luxe-400">No active tasks assigned.</p>
+                    </div>
+                ) : (
+                    <div className="grid gap-6">
+                        {activeTasks.map(order => {
+                            const orderDesign = designs.find(d => d.id === order.designId);
+                            const displayImages = [
+                                ...(orderDesign?.images || []),
+                                ...(order.referenceImages || []),
+                                order.generatedDesignUrl
+                            ].filter(Boolean) as string[];
+
+                            return (
+                                <Card key={order.id} className="flex flex-col gap-4">
+                                    <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <Badge color="bg-brand-burgundy/10 text-brand-burgundy">#{order.id.slice(-6)}</Badge>
+                                                <span className="font-bold text-lg">{order.category}</span>
+                                            </div>
+                                            <p className="text-sm text-luxe-600 mb-2">{order.description}</p>
+                                            <div className="flex items-center gap-2 text-sm text-red-600 font-bold bg-red-50 px-2 py-1 rounded inline-block">
+                                                <Clock className="w-4 h-4" /> Due: {order.dueDate ? new Date(order.dueDate).toDateString() : 'ASAP'}
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button onClick={() => updateOrderStatus(order.id, OrderStatus.COMPLETED)}>Mark Done</Button>
+                                            <Button variant="outline" onClick={() => navigate(`/order/${order.id}`)}>Details</Button>
+                                        </div>
+                                    </div>
+
+                                    {/* Inline Gallery for Employee */}
+                                    {displayImages.length > 0 && (
+                                        <div className="bg-luxe-50 p-3 rounded-lg border border-luxe-100">
+                                            <p className="text-xs font-bold text-luxe-500 mb-2 uppercase">Design Reference Images</p>
+                                            <div className="flex gap-3 overflow-x-auto pb-2">
+                                                {displayImages.map((img, i) => (
+                                                    <img key={i} src={img} className="w-24 h-24 object-cover rounded-md border border-white shadow-sm flex-shrink-0 cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(img, '_blank')} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </Card>
+                            );
+                        })}
+                    </div>
+                )
+             )}
+
+             {activeTab === 'completed' && (
+                 <div className="grid gap-6">
+                    {completedTasks.length === 0 && <p className="text-luxe-400 text-center">No completed tasks history.</p>}
+                    {completedTasks.map(order => (
+                        <Card key={order.id} className="opacity-75">
+                            <h3 className="font-bold">#{order.id.slice(-6)} - {order.category}</h3>
+                            <p className="text-sm">Completed on: {order.dueDate}</p>
+                            <Badge className="mt-2">Completed</Badge>
+                        </Card>
+                    ))}
+                 </div>
+             )}
+
+             {activeTab === 'history' && (
+                 <Card>
+                     <h3 className="font-bold text-xl mb-4">Activity Log</h3>
+                     <div className="overflow-hidden rounded-lg border border-luxe-200">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-luxe-50 font-bold text-luxe-700">
+                                <tr>
+                                    <th className="p-3">Time</th>
+                                    <th className="p-3">Action</th>
+                                    <th className="p-3">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-luxe-100">
+                                {myLogs.length === 0 && (
+                                    <tr><td colSpan={3} className="p-4 text-center text-luxe-400">No activity recorded yet.</td></tr>
+                                )}
+                                {myLogs.map(log => (
+                                    <tr key={log.id} className="hover:bg-luxe-50/50">
+                                        <td className="p-3 text-luxe-500 font-mono text-xs">
+                                            {new Date(log.timestamp).toLocaleTimeString()} <br/>
+                                            {new Date(log.timestamp).toLocaleDateString()}
+                                        </td>
+                                        <td className="p-3 font-medium text-brand-burgundy">{log.action}</td>
+                                        <td className="p-3 text-luxe-800">{log.details}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                     </div>
+                 </Card>
+             )}
+        </div>
+     );
+};
 
 const CustomerDashboard = () => {
     const { orders, user } = useStore();
@@ -1041,70 +1193,6 @@ const CustomerDashboard = () => {
             )}
         </div>
     );
-};
-
-const EmployeeDashboard = () => {
-     const { orders, user, updateOrderStatus } = useStore();
-     const navigate = useNavigate();
-     const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
-
-     if (user?.role !== UserRole.EMPLOYEE) return <Navigate to="/login" />;
-     
-     const myOrders = orders.filter(o => o.assignedEmployeeId === user.id);
-     
-     // Filter tasks based on status
-     const activeTasks = myOrders.filter(o => o.status !== OrderStatus.COMPLETED && o.status !== OrderStatus.DELIVERED);
-     const historyTasks = myOrders.filter(o => o.status === OrderStatus.COMPLETED || o.status === OrderStatus.DELIVERED);
-     
-     const displayedTasks = activeTab === 'active' ? activeTasks : historyTasks;
-
-     return (
-        <div className="container mx-auto px-4 py-8 min-h-screen bg-luxe-50">
-             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                 <div>
-                    <h1 className="text-3xl font-serif font-bold text-luxe-900">Atelier Portal</h1>
-                    <p className="text-luxe-500">Welcome back, {user.name}</p>
-                 </div>
-                 <div className="flex bg-white rounded-lg p-1 shadow-sm border border-luxe-200">
-                     <button 
-                        onClick={() => setActiveTab('active')}
-                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'active' ? 'bg-brand-burgundy text-white shadow' : 'text-luxe-500 hover:bg-luxe-50'}`}
-                     >
-                        <CheckSquare className="w-4 h-4 inline mr-2"/>Active Tasks
-                     </button>
-                     <button 
-                        onClick={() => setActiveTab('history')}
-                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-brand-burgundy text-white shadow' : 'text-luxe-500 hover:bg-luxe-50'}`}
-                     >
-                        <History className="w-4 h-4 inline mr-2"/>History
-                     </button>
-                 </div>
-             </div>
-             
-             {displayedTasks.length === 0 ? (
-                 <div className="text-center py-20 bg-white rounded-xl border border-dashed border-luxe-200">
-                     <p className="text-luxe-400">No tasks in this section.</p>
-                 </div>
-             ) : (
-                 <div className="grid gap-6">
-                    {displayedTasks.map(order => (
-                        <Card key={order.id} className="flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div>
-                                <h3 className="font-bold text-lg">#{order.id.slice(-6)} - {order.category}</h3>
-                                <p className="text-sm text-luxe-500">Due: {order.dueDate || 'No Date'}</p>
-                            </div>
-                            <div className="flex gap-2">
-                                 {activeTab === 'active' && order.status !== 'Completed' && (
-                                     <Button onClick={() => updateOrderStatus(order.id, OrderStatus.COMPLETED)}>Mark Done</Button>
-                                 )}
-                                 <Button variant="outline" onClick={() => navigate(`/order/${order.id}`)}>View Details & Images</Button>
-                            </div>
-                        </Card>
-                    ))}
-                 </div>
-             )}
-        </div>
-     );
 };
 
 const LoginPage = () => {

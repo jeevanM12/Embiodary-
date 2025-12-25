@@ -57,6 +57,16 @@ export interface ChatMessage {
   isAdmin: boolean; // or isEmployee
 }
 
+export interface ActionLog {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  action: string;
+  details: string;
+  timestamp: number;
+  orderId?: string;
+}
+
 export interface Order {
   id: string;
   customerId: string;
